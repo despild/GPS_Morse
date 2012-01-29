@@ -21,7 +21,7 @@ String al="x.x";
 String sat="xx";
 String message="test";
 
-float fTime=0;
+
 float fLa=0;
 float fLo=0;
 float fAl=0;
@@ -104,7 +104,7 @@ void loop(){
     }
     
 
-    fTime +=time.toFloat();
+
     fLa+=la.toFloat();
     fLo +=lo.toFloat();
     fAl +=al.toFloat();
@@ -112,9 +112,9 @@ void loop(){
     
     
     if(morseTime){
-      time=String(fTime/(float)floatCount);
-      la=String(fLa/(float)floatCount);
-      lo=String(fLo/(float)floatCount);
+
+      la=String(fLa/(float)floatCount/100);
+      lo=String(fLo/(float)floatCount/100);
       al=String(fAl/(float)floatCount);
       digitalWrite(pttPin,HIGH);
       delay(1000);
@@ -134,7 +134,7 @@ void loop(){
     
     readLine ="";
     stringComplete=false;
-    fTime = 0;
+
     fLa= 0;
     fLo=0;
     fAl=0;
