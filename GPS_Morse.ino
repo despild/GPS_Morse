@@ -1,14 +1,17 @@
 #include <string.h>
-#define GPSrxPin 0
-#define GPStxPin 1
-#define tonePin 8
-#define pttPin 11
-#define dotTime 1000/4
-#define dashTime 1000/4*3
-#define TONE_C4 262
+
+int GPSrxPin=0;
+int GPStxPin =1;
+int tonePin= 8;
+int pttPin =11;
+int unitTime = 150; 
+int dotTime =unitTime;
+int dashTime =unitTime*3;
+int timeWord =unitTime*3;
+int timeLetter=unitTime*7;
+int TONE =700;
 String readLine ="";
 boolean stringComplete = false;
-
 String time="hhmmss";
 String la="ddmm.mmmm";
 String ns="a";
@@ -17,13 +20,12 @@ String ew="a";
 String al="x.x";
 String sat="xx";
 String message="test";
-int codeSize = 39;
-int timeWord = 1000/4*3*1.3;
-int timeLetter = 1000/4*3*1.3;
-String code[] = {
-  ".-","-...","-.-.","-..",".","..-.","--.","....","..",".---","-.-",".-..","--","-.","---",".--.","--.-",".-.","...","-","..-","...-",".--","-..-","-.--","--..",".----","..---","...--","....-",".....","-....","--...","---..","----.","-----",".-.-.-","--..--","---..."};
-String coderef[] = {
-  "a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z","1","2","3","4","5","6","7","8","9","0",".",",",":"};
+
+float fTime=0;
+float fLa=0;
+float fLo=0;
+float fAl=0;
+int floatCount=0;
 
 boolean morseTime=true;
 int timeCounter=0;
@@ -85,6 +87,8 @@ void setup(){
 
 
 void loop(){
+  
+  
   if (stringComplete) {
 //    Serial.println(readLine);
     if(splitString(readLine,',',0)=="$GPGGA"){
@@ -99,29 +103,25 @@ void loop(){
       sat = splitString(readLine,',',3);
     }
     
+
+    fTime +=time.toFloat();
+    fLa+=la.toFloat();
+    fLo +=lo.toFloat();
+    fAl +=al.toFloat();
+    floatCount ++;
+    
     
     if(morseTime){
-      
+      time=String(fTime/(float)floatCount);
+      la=String(fLa/(float)floatCount);
+      lo=String(fLo/(float)floatCount);
+      al=String(fAl/(float)floatCount);
       digitalWrite(pttPin,HIGH);
       delay(1000);
       message="time:"+time+"latitude:"+la+","+ns+"longitude:"+lo+","+ew+"altitude:"+al+"satellites:"+sat;
      
      morseTalk(message);
-/*
-      for (int x = 0,strlength = message.length(); x < strlength; x++){
 
-        String ch = message.substring(x,x+1);
-        String ch2 = message.substring(x+1,x+2);
-        flashLetter(ch);
-        if (ch == ""){
-          delay(timeWord);
-        }
-        else if (ch != "" && ch2 != "") {
-          delay(timeLetter);
-        }
-     
-      }
-        */
         
         digitalWrite(pttPin,LOW);
         morseTime =false;
@@ -129,12 +129,16 @@ void loop(){
     }
    
    
-   
-   
+
+
     
     readLine ="";
     stringComplete=false;
-    
+    fTime = 0;
+    fLa= 0;
+    fLo=0;
+    fAl=0;
+    floatCount=0;
    
     
   }
@@ -142,6 +146,13 @@ void loop(){
   if((millis()-timeCounter)>5*60*1000){
        morseTime=true; 
   }
+  
+
+  digitalWrite(pttPin,HIGH);
+  delay(1000);
+  morseTalk("opensat2012");
+//  delay(timeLetter);
+  digitalWrite(pttPin,LOW);
   
   delay(50);
 
@@ -206,17 +217,19 @@ void flashLetter (String character){
 
 */
 void toneOut (String character){
-  Serial.println("!TO");
+  //Serial.println("!TO");
   // Returns how long a dit or da is in ms.
   if (character == "."){
-    tone(tonePin,TONE_C4,dotTime);
-    delay(dashTime*1.3);
+    tone(tonePin,TONE);
+    delay(dotTime);
     noTone(tonePin);
+    delay(dotTime);
   }
   else if (character == "-"){
-    tone(tonePin,TONE_C4,dashTime);
-    delay(dashTime*1.3);
+    tone(tonePin,TONE);
+    delay(dashTime);
     noTone(tonePin);
+    delay(dotTime);
   }
 }
 /*
@@ -236,7 +249,7 @@ Serial.println("!SL");
 */
 
 void morseTalk(String str){
-   Serial.println("!MT");
+   //Serial.println("!MT");
    String tempStr="";
    str.toLowerCase();
    for(int x =0,strlen =str.length();x<strlen;x++){
