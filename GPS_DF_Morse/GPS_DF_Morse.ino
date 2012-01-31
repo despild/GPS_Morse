@@ -4,13 +4,31 @@
 
 int tonePin= 8;
 int pttPin =11;
-int unitTime = 30; 
+int unitTime = 60; 
 int dotTime =unitTime;
 int dashTime =unitTime*3;
 int timeWord =unitTime*3;
 int timeLetter=unitTime*7;
 int TONE =700;
 
+
+char morseTime[20];
+char morseLon[20];
+char morseLonDir[1];
+char morseLat[20];
+char morseLatDir[1];
+char morseAlt[10];
+
+double dTime=0.0;
+double dLon=0.0;
+double dLat=0.0;
+double dAlt=0.0;
+
+int lonCnt=0;
+int latCnt=0;
+int altCnt=0;
+
+float systime = (float)millis();
 
 int GPSAddress = 0x42;//GPS I2C Address
 
@@ -83,6 +101,8 @@ char ID()//接收语句的ID
     Wire.endTransmission();//结束接收
   }
 }
+
+
 void UTC()//获取时间信息
 {
   char i = 0,flag=0;
@@ -96,6 +116,7 @@ void UTC()//获取时间信息
 
   while(1)
   {
+    
     rec_init();    
     while(Wire.available())   
     { 
@@ -121,9 +142,12 @@ void UTC()//获取时间信息
         if(i==9)
         {
           t=Datatransfer(time,2);//转换成浮点型数据
-          t=t+80000.00;//将时间转换成北京时间
+          t=t+90000.00;//将时间转换成北京时间
           Serial.println(t);//输出时间数据 
-          morseTalk(time,9);
+          dTime=t;
+          if(dTime > 240000){
+            dTime -=240000;
+          }
           Wire.endTransmission();
           return;
         }
@@ -163,38 +187,98 @@ void rec_data(char *buff,char num1,char num2)//接收数据子函数
     }
   }
 }
+
+boolean isFix()//获取时间信息
+{
+  char i = 0,flag=0;
+  char value[7]={
+    '$','G','P','G','S','A',','   };
+  char buff[7]={
+    '0','0','0','0','0','0','0'       };
+  char fix='0';//存放时间数据
+  int count=0;
+  
+  while(1){
+    rec_init();    
+    while(Wire.available()){ 
+      if(!flag){ 
+        buff[i] = Wire.read();
+        if(buff[i]==value[i]){
+          i++;
+          if(i==7){
+            i=0;
+            flag=1;
+          }
+        }else{
+          i=0;
+        }
+      }else{
+        fix = Wire.read();
+        if(count != 2){
+          if(fix == ','){
+            count++;  
+          }
+        }else{
+          if(fix=='2'||fix=='3'){
+            Serial.println("Fixed");
+            Wire.endTransmission();
+            return true; 
+          }else{
+            Serial.print("Fix Status");
+            Serial.println(fix);
+            Wire.endTransmission();
+            return false; 
+          }
+        }
+      }
+    }
+    Wire.endTransmission();
+  }
+}
+       
 void latitude()//获取纬度信息
 {
+  double temp;
   char lat[10]={
     '0','0','0','0','0','0','0','0','0','0' };//存放纬度数据
   rec_data(lat,1 ,10);//接收纬度数据
-            morseTalk(lat,10);
-  Serial.println(Datatransfer(lat,5),5);//将纬度数据转换成浮点型数据并输出
+  if(lat[0]=='-'){
+    lat[0]='0'; 
+  }
+  temp = Datatransfer(lat,5);
+  dLat += temp;
+  latCnt++;
+  Serial.println(temp,5);//将纬度数据转换成浮点型数据并输出
 }
 void lat_dir()//获取纬度方向信息
 {
   char dir[1]={'0'};//存放纬度方向数据
   rec_data(dir,2,1);//接收纬度方向数据
-  morseTalk(dir,1);
   Serial.println(dir[0]);//将纬度方向信息输出
 }
 void  longitude()//获取经度信息
 {
+  double temp;
   char lon[11]={
     '0','0','0','0','0','0','0','0','0','0','0' };//存放经度数据
   rec_data(lon,3,11);//接收经度数据
-            morseTalk(lon,11);
-  Serial.println(Datatransfer(lon,5),5);//将经度数据转换成浮点型数据并输出
+  if(lon[0]=='-'){
+    lon[0]='0'; 
+  }
+  temp =Datatransfer(lon,5);
+  dLon+=temp;
+  lonCnt++;
+  Serial.println(temp,5);//将经度数据转换成浮点型数据并输出
 }
 void lon_dir()//获取经度方向信息
 {
   char dir[1]={'0'};
   rec_data(dir,4,1);
-  morseTalk(dir,1);
   Serial.println(dir[0]);
 }
 void altitude()//获取海拔信息
 {
+  double temp;
   char i=0,count=0;
   char alt[8]={
     '0','0','0','0','0','0','0','0' };
@@ -216,8 +300,10 @@ void altitude()//获取海拔信息
         {
           if(alt[i]==',')
           {
-                      morseTalk(alt,8);
-            Serial.println(Datatransfer(alt,1),1);
+            temp = Datatransfer(alt,1);
+            dAlt += temp;
+            altCnt++;
+            Serial.println(temp,1);
             Wire.endTransmission();
             return;
           }
@@ -240,45 +326,84 @@ void setup()
 }
 void loop()
 {
-  while(1)
-  {
-    digitalWrite(pttPin,HIGH);
-      delay(1000);
+  
+  if(isFix()){
+
+
+
+    Serial.println(' ');
     Serial.print("UTC:");
-    morseTalk('u');
-        morseTalk('t');
-            morseTalk('c');
-    morseTalk(':');
     UTC();
-    morseTalk(',');
     Serial.print("Lat:");
-    morseTalk('l');
-    morseTalk('a');
-    morseTalk('t');
-    morseTalk(':');
     latitude();
-    morseTalk(',');
     lat_dir();
-    morseTalk(',');
     Serial.print("Lon:");
-    morseTalk('l');
-    morseTalk('o');
-    morseTalk('n');
-    morseTalk(':');
     longitude();
-    morseTalk(',');
     lon_dir();
-    morseTalk(',');
     Serial.print("Alt:");
-    morseTalk('a');
-    morseTalk('l');
-    morseTalk('t');
-    morseTalk(';');
     altitude();
-    morseTalk('m');
     Serial.println(' ');
-    Serial.println(' ');
-            digitalWrite(pttPin,LOW);
+    
+
+    float timeDiff =(float)millis()-systime;
+    Serial.println(millis());
+    Serial.println(timeDiff);
+
+    if(timeDiff > 60.0*1000){   // need pairing type casting in comparison
+      Serial.println("!MORSE");
+      int tempInt=0;
+      digitalWrite(pttPin,HIGH);
+      delay(1000);
+      tempInt = double2CharArr(dTime,0,morseTime);
+      morseTalk('t');
+      morseTalk('i');
+      morseTalk('m');
+      morseTalk('e');
+      morseTalk(':');
+      morseTalk(morseTime,tempInt);
+      morseTalk(',');    
+      tempInt = double2CharArr((double)(dLat/latCnt),4,morseLat);
+      Serial.println(dLat);
+      Serial.println(dLat/latCnt);
+//      for(int i=0;i<tempInt;i++){
+//        Serial.println(morseLat[i]);
+//      }
+      morseTalk('l');
+      morseTalk('a');
+      morseTalk('t');
+      morseTalk(':');
+      morseTalk(morseLat,tempInt);
+      morseTalk(',');
+      morseTalk(morseLatDir,1);
+      morseTalk(',');
+      tempInt = double2CharArr((double)(dLon/lonCnt),4,morseLon);
+      morseTalk('l');
+      morseTalk('o');
+      morseTalk('n');
+      morseTalk(':');
+      morseTalk(morseLon,tempInt);
+      morseTalk(',');
+      morseTalk(morseLonDir,1);
+      morseTalk(',');
+      tempInt = double2CharArr((double)(dAlt/altCnt),1,morseAlt);
+      morseTalk('a');
+      morseTalk('l');
+      morseTalk('t');
+      morseTalk(':');
+      morseTalk(morseAlt,tempInt);
+      morseTalk('m');
+      digitalWrite(pttPin,LOW);
+      dLat=0;
+      dLon=0;
+      dAlt=0;
+      latCnt=0;
+      lonCnt=0;
+      altCnt=0;
+       
+      systime = (float)millis();  
+    }
+  
+    delay(100);
   }
 }
 
@@ -310,13 +435,10 @@ morseTalk(tempS,1);
 
 
 void morseTalk(char * str,int n){
-   //Serial.println("!MT");
    char tempStr;
    for(int x =0;x<n;x++){
-     Serial.print(x);
-     Serial.print(":");
      tempStr =str[x];
-     Serial.println(tempStr);
+     Serial.print(tempStr);
      if(tempStr=='a'){
          toneOut(".");
          toneOut("-");
@@ -553,6 +675,9 @@ void morseTalk(char * str,int n){
          toneOut(".");
          toneOut("-");
          delay(timeWord);
+}else if(tempStr=='\0'){
+ Serial.print("NULL"); 
+  
 }else{
        Serial.print("error");
      }
@@ -560,3 +685,99 @@ void morseTalk(char * str,int n){
    }
   
 }
+
+
+int double2CharArr(double d, int dot, char *buff){
+  if(d>=0){
+    long intPart = (long)d;
+    long noneIntPart = (long)((d-intPart)*(pow(10,dot)+0.000005)); 
+    int intCnt=0;
+    long num =intPart;
+    while(1){
+      num/=10;
+      if(num == 0){
+        break;
+      }else{
+        intCnt++; 
+      }
+    }
+    intCnt++;
+    Serial.println(intPart);
+    Serial.print("!!!");
+    for(int i =0;i<intCnt;i++){
+//      Serial.print(intPart/(long)(pow(10,intCnt-i-1)+0.5));
+       buff[i]=int2Char((intPart/(long)(pow(10,intCnt-i-1)+0.5)));
+       intPart =intPart%((long)(pow(10,intCnt-i-1)+0.5));
+    }
+    buff[intCnt]='.';
+    for(int i=0;i<dot;i++){
+      buff[i+1+intCnt]=int2Char((noneIntPart/(long)(pow(10,dot-i-1)+0.5)));
+      noneIntPart =noneIntPart%((long)(pow(10,dot-i-1)+0.5));
+      
+    }
+    
+    return intCnt+dot+1;
+  }else if(d<0){
+    long intPart = (long)(d*(-1));
+    long noneIntPart = (long)(((d*(-1))-intPart)*(pow(10,dot)+0.000005)); 
+    int intCnt=0;
+    long num =intPart;
+    while(1){
+      num/=10;
+      if(num == 0){
+        break;
+      }else{
+        intCnt++; 
+      }
+    }
+    intCnt++;
+
+    buff[0]='-';
+    
+    for(int i =0;i<intCnt;i++){
+       buff[i+1]=int2Char((intPart/(long)(pow(10,intCnt-i-1)+0.5)));
+       //Serial.println(intPart);
+       intPart =intPart%((long)(pow(10,intCnt-i-1)+0.5));
+    }
+    buff[intCnt+1]='.';
+    for(int i=0;i<dot;i++){
+      buff[i+2+intCnt]=int2Char((noneIntPart/(long)(pow(10,dot-i-1)+0.5)));
+      noneIntPart =noneIntPart%((long)(pow(10,dot-i-1)+0.5));
+    }
+    return intCnt+dot+2; 
+  }else{
+    double2CharArr(0.0,dot,buff); 
+    
+  }
+}
+
+
+
+
+char int2Char(int n){
+  switch(n){
+    case 0:
+      return '0';
+    case 1:
+      return '1';
+    case 2:
+      return '2';
+    case 3:
+      return '3';
+    case 4:
+      return '4';
+    case 5:
+      return '5';
+    case 6:
+      return '6';
+    case 7:
+      return '7';
+    case 8:
+      return '8';
+    case 9:
+      return '9';    
+  } 
+  
+  return '\0';
+}
+
