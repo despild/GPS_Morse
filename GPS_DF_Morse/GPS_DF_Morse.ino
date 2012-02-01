@@ -2,8 +2,8 @@
 
 #define BUFFER_LENGTH 10//Define the buffer length
 
-int tonePin= 8;
-int pttPin =11;
+int tonePin= 12;
+int pttPin =13;
 int unitTime = 60; 
 int dotTime =unitTime;
 int dashTime =unitTime*3;
@@ -123,9 +123,11 @@ void UTC()//获取时间信息
       if(!flag)
       { 
         buff[i] = Wire.read();
+
         if(buff[i]==value[i])
         {
           i++;
+
           if(i==7)
           {
             i=0;
@@ -188,43 +190,50 @@ void rec_data(char *buff,char num1,char num2)//接收数据子函数
   }
 }
 
-boolean isFix()//获取时间信息
-{
+boolean isFix(){
   char i = 0,flag=0;
-  char value[7]={
-    '$','G','P','G','S','A',','   };
-  char buff[7]={
-    '0','0','0','0','0','0','0'       };
+  char value[7]={'$','G','P','G','S','A',','};
+  char buff[7]={'0','0','0','0','0','0','0'};
   char fix='0';//存放时间数据
   int count=0;
   
   while(1){
     rec_init();    
     while(Wire.available()){ 
-      if(!flag){ 
+      if(flag==0){
         buff[i] = Wire.read();
         if(buff[i]==value[i]){
           i++;
           if(i==7){
             i=0;
             flag=1;
+            //check $GPGSA for debug
+            /*
+            for (int x =0;x<7;x++){
+              Serial.print(buff[x]); 
+            }
+            Serial.println();
+            */
           }
         }else{
           i=0;
         }
       }else{
         fix = Wire.read();
-        if(count != 2){
+        if(count != 1){
           if(fix == ','){
             count++;  
           }
         }else{
           if(fix=='2'||fix=='3'){
             Serial.println("Fixed");
+            Serial.print("Fix Status:");
+            Serial.println(fix);
+
             Wire.endTransmission();
             return true; 
           }else{
-            Serial.print("Fix Status");
+            Serial.print("Fix Status:");
             Serial.println(fix);
             Wire.endTransmission();
             return false; 
@@ -235,7 +244,8 @@ boolean isFix()//获取时间信息
     Wire.endTransmission();
   }
 }
-       
+   
+    
 void latitude()//获取纬度信息
 {
   double temp;
@@ -327,8 +337,8 @@ void setup()
 void loop()
 {
   
-  if(isFix()){
-
+//  if(isFix()){
+  if(1){
 
 
     Serial.println(' ');
